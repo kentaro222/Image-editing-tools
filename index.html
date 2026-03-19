@@ -1,0 +1,523 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>画像編集ツール</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #121212;
+      --panel-bg: #1e1e1e;
+      --text-color: #e0e0e0;
+      --accent-color: #bb86fc;
+      --border-color: #333;
+    }
+    body {
+      margin: 0;
+      padding: 20px;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      box-sizing: border-box;
+    }
+    h1 {
+      text-align: center;
+      margin-top: 0;
+      font-size: 1.5rem;
+      color: var(--accent-color);
+    }
+    .container {
+      display: flex;
+      flex: 1;
+      gap: 20px;
+      min-height: 0;
+    }
+    .preview-area {
+      flex: 2;
+      background-color: var(--panel-bg);
+      border: 2px dashed var(--border-color);
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+      padding: 10px;
+    }
+    .preview-area.dragover {
+      border-color: var(--accent-color);
+      background-color: #2a2a2a;
+    }
+    .img-container {
+      width: 100%;
+      height: 100%;
+      display: none;
+    }
+    img#image {
+      max-width: 100%;
+      max-height: 100%;
+    }
+    .upload-btn-wrapper {
+      position: absolute;
+      text-align: center;
+    }
+    .upload-btn-wrapper input[type=file] {
+      display: none;
+    }
+    .btn {
+      background-color: var(--accent-color);
+      color: #000;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.8; }
+    
+    .control-panel {
+      flex: 1;
+      background-color: var(--panel-bg);
+      border-radius: 8px;
+      padding: 20px;
+      overflow-y: auto;
+      min-width: 320px;
+    }
+    .control-section {
+      margin-bottom: 20px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid var(--border-color);
+    }
+    .control-section h3 {
+      margin: 0 0 10px 0;
+      font-size: 1.1rem;
+      color: #fff;
+    }
+    .control-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      font-size: 0.9rem;
+    }
+    .control-row input[type="number"],
+    .control-row input[type="text"] {
+      background-color: #333;
+      color: white;
+      border: 1px solid #555;
+      padding: 4px;
+      border-radius: 4px;
+    }
+    .control-row input[type="number"] {
+      width: 70px;
+    }
+    .control-row input[type="text"] {
+      width: 160px; /* ファイル名入力用に少し広めに設定 */
+    }
+    .ratio-btns {
+      display: flex;
+      gap: 5px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+    .ratio-btn {
+      background-color: #333;
+      color: #ccc;
+      border: 1px solid #555;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+    .ratio-btn.active {
+      background-color: var(--accent-color);
+      color: #000;
+    }
+    input[type="range"] {
+      width: 100%;
+      margin: 10px 0;
+    }
+    select {
+      background-color: #333;
+      color: white;
+      border: 1px solid #555;
+      padding: 5px;
+      border-radius: 4px;
+      width: 100px;
+    }
+    .value-display {
+      color: var(--accent-color);
+      font-weight: bold;
+    }
+    
+    /* 最終プレビュー用のスタイル */
+    #final-preview-container {
+      width: 100%;
+      background-image: repeating-linear-gradient(45deg, #333 25%, transparent 25%, transparent 75%, #333 75%, #333), repeating-linear-gradient(45deg, #333 25%, #222 25%, #222 75%, #333 75%, #333);
+      background-position: 0 0, 10px 10px;
+      background-size: 20px 20px;
+      border: 1px solid #555;
+      border-radius: 4px;
+      text-align: center;
+      padding: 10px;
+      box-sizing: border-box;
+      min-height: 150px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    #final-preview-img {
+      max-width: 100%;
+      max-height: 250px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+    }
+
+    #download-btn {
+      width: 100%;
+      padding: 15px;
+      font-size: 1.1rem;
+      background-color: #03dac6;
+      margin-top: 10px;
+    }
+
+    /* スマホ用のレスポンシブ対応 */
+    @media (max-width: 768px) {
+      body {
+        height: auto;
+        display: block;
+      }
+      .container {
+        flex-direction: column;
+      }
+      .preview-area {
+        min-height: 50vh;
+        width: 100%;
+        margin-bottom: 20px;
+      }
+      .control-panel {
+        min-width: 100%;
+        overflow-y: visible;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>高機能画像編集ツール</h1>
+
+  <div class="container">
+    <div class="preview-area" id="drop-zone">
+      <div class="upload-btn-wrapper" id="upload-wrapper">
+        <p>画像をドラッグ＆ドロップ<br>または</p>
+        <button class="btn" onclick="document.getElementById('file-input').click()">ファイルを選択</button>
+        <input type="file" id="file-input" accept="image/*">
+      </div>
+      <div class="img-container" id="img-container">
+        <img id="image" src="">
+      </div>
+    </div>
+
+    <div class="control-panel">
+      
+      <div class="control-section">
+        <h3>1. 切り取り (Crop)</h3>
+        <div class="ratio-btns">
+          <button class="ratio-btn active" onclick="setAspectRatio(NaN, this)">自由</button>
+          <button class="ratio-btn" onclick="setAspectRatio(1, this)">1:1 (正方形)</button>
+          <button class="ratio-btn" onclick="setAspectRatio(16/9, this)">16:9 (横長)</button>
+          <button class="ratio-btn" onclick="setAspectRatio(4/3, this)">4:3 (横長)</button>
+          <button class="ratio-btn" onclick="setAspectRatio(9/16, this)">9:16 (スマホ縦)</button>
+          <button class="ratio-btn" onclick="setAspectRatio(3/4, this)">3:4 (縦長)</button>
+        </div>
+
+        <div class="control-row" style="justify-content: flex-start; gap: 10px; margin-bottom: 10px;">
+          <span>カスタム:</span>
+          <input type="number" id="custom-ratio-w" min="1" placeholder="幅" style="width: 50px;">
+          <span>:</span>
+          <input type="number" id="custom-ratio-h" min="1" placeholder="高さ" style="width: 50px;">
+          <button class="ratio-btn" onclick="applyCustomRatio(this)">適用</button>
+        </div>
+
+        <div class="control-row">
+          <span>切り取りサイズ: <span class="value-display"><span id="crop-w">0</span> x <span id="crop-h">0</span> px</span></span>
+        </div>
+      </div>
+
+      <div class="control-section">
+        <h3>2. 出力サイズ (Resize)</h3>
+        <div class="control-row">
+          <span>幅: <input type="number" id="resize-w" value="0"> px</span>
+          <span>高さ: <input type="number" id="resize-h" value="0"> px</span>
+        </div>
+        <div class="control-row">
+          <label><input type="checkbox" id="lock-ratio" checked> 縦横比を固定</label>
+        </div>
+        <div class="control-row">
+          <span>拡大縮小 (<span id="scale-val">100</span>%):</span>
+        </div>
+        <input type="range" id="scale-slider" min="10" max="200" value="100">
+      </div>
+
+      <div class="control-section">
+        <h3>3. 黒色オーバーレイ</h3>
+        <div class="control-row">
+          <span>透明度:</span>
+          <span class="value-display"><span id="overlay-val">0</span>%</span>
+        </div>
+        <input type="range" id="overlay-slider" min="0" max="100" value="0">
+      </div>
+
+      <div class="control-section">
+        <h3>4. 最終完成プレビュー</h3>
+        <p style="font-size: 0.8rem; margin-top:0; color:#aaa;">※実際の色味やサイズ感をここで確認できます</p>
+        <div id="final-preview-container">
+          <img id="final-preview-img" src="" alt="画像を選択してください">
+        </div>
+      </div>
+
+      <div class="control-section">
+        <h3>5. 保存設定</h3>
+        <div class="control-row">
+          <span>ファイル名:</span>
+          <input type="text" id="filename-input" value="image_edited" placeholder="ファイル名を入力">
+        </div>
+        <div class="control-row">
+          <span>フォーマット:</span>
+          <select id="format-select">
+            <option value="image/jpeg">JPEG</option>
+            <option value="image/png">PNG</option>
+            <option value="image/webp">WebP</option>
+          </select>
+        </div>
+        <div id="quality-container">
+          <div class="control-row">
+            <span>画質:</span>
+            <span class="value-display"><span id="quality-val">80</span>%</span>
+          </div>
+          <input type="range" id="quality-slider" min="1" max="100" value="80">
+        </div>
+      </div>
+
+      <button id="download-btn" class="btn" disabled>編集してダウンロード</button>
+
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+  <script>
+    let cropper;
+    let originalFileName = 'image';
+    let baseCropWidth = 0;
+    let baseCropHeight = 0;
+
+    const imageElement = document.getElementById('image');
+    const fileInput = document.getElementById('file-input');
+    const dropZone = document.getElementById('drop-zone');
+    const imgContainer = document.getElementById('img-container');
+    const uploadWrapper = document.getElementById('upload-wrapper');
+    const downloadBtn = document.getElementById('download-btn');
+    const finalPreviewImg = document.getElementById('final-preview-img');
+    const filenameInput = document.getElementById('filename-input'); // 追加：ファイル名入力要素
+
+    const cropW = document.getElementById('crop-w');
+    const cropH = document.getElementById('crop-h');
+    const resizeW = document.getElementById('resize-w');
+    const resizeH = document.getElementById('resize-h');
+    const lockRatio = document.getElementById('lock-ratio');
+    const scaleSlider = document.getElementById('scale-slider');
+    const scaleVal = document.getElementById('scale-val');
+    const overlaySlider = document.getElementById('overlay-slider');
+    const overlayVal = document.getElementById('overlay-val');
+    const formatSelect = document.getElementById('format-select');
+    const qualitySlider = document.getElementById('quality-slider');
+    const qualityVal = document.getElementById('quality-val');
+    const qualityContainer = document.getElementById('quality-container');
+
+    // 画像読み込み
+    dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files.length > 0) loadImage(e.dataTransfer.files[0]);
+    });
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) loadImage(e.target.files[0]);
+    });
+
+    function loadImage(file) {
+      if (!file.type.startsWith('image/')) return alert('画像ファイルを選択してください。');
+      
+      // 元のファイル名を取得してテキストボックスにセット（拡張子は除く）
+      originalFileName = file.name.replace(/\.[^/.]+$/, "");
+      filenameInput.value = originalFileName + "_edited";
+      
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        imageElement.src = e.target.result;
+        uploadWrapper.style.display = 'none';
+        imgContainer.style.display = 'block';
+        downloadBtn.disabled = false;
+        initCropper();
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // Cropper初期化
+    function initCropper() {
+      if (cropper) cropper.destroy();
+      cropper = new Cropper(imageElement, {
+        viewMode: 1,
+        autoCropArea: 1,
+        crop(event) {
+          baseCropWidth = Math.round(event.detail.width);
+          baseCropHeight = Math.round(event.detail.height);
+          cropW.innerText = baseCropWidth;
+          cropH.innerText = baseCropHeight;
+          updateResizeFieldsFromScale();
+        },
+        ready() { updateLivePreview(); },
+        cropend() { updateLivePreview(); } // マウスを離した時にプレビュー更新
+      });
+    }
+
+    function setAspectRatio(ratio, btnElement) {
+      if (!cropper) return;
+      cropper.setAspectRatio(ratio);
+      document.querySelectorAll('.ratio-btn').forEach(btn => btn.classList.remove('active'));
+      btnElement.classList.add('active');
+      setTimeout(updateLivePreview, 100);
+    }
+
+    // カスタム比率を適用する関数
+    function applyCustomRatio(btnElement) {
+      if (!cropper) return;
+      const w = parseFloat(document.getElementById('custom-ratio-w').value);
+      const h = parseFloat(document.getElementById('custom-ratio-h').value);
+      
+      if (w > 0 && h > 0) {
+        cropper.setAspectRatio(w / h);
+        document.querySelectorAll('.ratio-btn').forEach(btn => btn.classList.remove('active'));
+        btnElement.classList.add('active');
+        setTimeout(updateLivePreview, 100);
+      } else {
+        alert("幅と高さに0より大きい数値を入力してください。");
+      }
+    }
+
+    // リサイズ連動
+    scaleSlider.addEventListener('input', (e) => {
+      scaleVal.innerText = e.target.value;
+      updateResizeFieldsFromScale();
+      updateLivePreview();
+    });
+
+    function updateResizeFieldsFromScale() {
+      const scale = parseInt(scaleSlider.value) / 100;
+      resizeW.value = Math.round(baseCropWidth * scale);
+      resizeH.value = Math.round(baseCropHeight * scale);
+    }
+
+    resizeW.addEventListener('change', (e) => {
+      let newW = parseInt(e.target.value) || 0;
+      if (lockRatio.checked && baseCropWidth > 0) resizeH.value = Math.round(newW * (baseCropHeight / baseCropWidth));
+      updateScaleSliderFromResize();
+      updateLivePreview();
+    });
+
+    resizeH.addEventListener('change', (e) => {
+      let newH = parseInt(e.target.value) || 0;
+      if (lockRatio.checked && baseCropHeight > 0) resizeW.value = Math.round(newH * (baseCropWidth / baseCropHeight));
+      updateScaleSliderFromResize();
+      updateLivePreview();
+    });
+
+    function updateScaleSliderFromResize() {
+      if (baseCropWidth > 0) {
+        const scale = Math.round((parseInt(resizeW.value) / baseCropWidth) * 100);
+        scaleSlider.value = Math.min(Math.max(scale, 10), 200);
+        scaleVal.innerText = scaleSlider.value;
+      }
+    }
+
+    // オーバーレイ・画質
+    overlaySlider.addEventListener('input', (e) => {
+      overlayVal.innerText = e.target.value;
+      updateLivePreview();
+    });
+    qualitySlider.addEventListener('input', (e) => qualityVal.innerText = e.target.value);
+
+    formatSelect.addEventListener('change', (e) => {
+      if (e.target.value === 'image/png') {
+        qualityContainer.style.opacity = '0.5';
+        qualitySlider.disabled = true;
+      } else {
+        qualityContainer.style.opacity = '1';
+        qualitySlider.disabled = false;
+      }
+    });
+
+    // --- コア機能：Canvasの生成 ---
+    function generateFinalCanvas() {
+      if (!cropper) return null;
+      const croppedCanvas = cropper.getCroppedCanvas();
+      if (!croppedCanvas) return null;
+
+      const targetW = parseInt(resizeW.value) || baseCropWidth;
+      const targetH = parseInt(resizeH.value) || baseCropHeight;
+      if(targetW === 0 || targetH === 0) return null;
+
+      const finalCanvas = document.createElement('canvas');
+      finalCanvas.width = targetW;
+      finalCanvas.height = targetH;
+      const ctx = finalCanvas.getContext('2d');
+
+      ctx.drawImage(croppedCanvas, 0, 0, targetW, targetH);
+
+      const overlayOpacity = parseInt(overlaySlider.value) / 100;
+      if (overlayOpacity > 0) {
+        ctx.fillStyle = `rgba(0, 0, 0, ${overlayOpacity})`;
+        ctx.fillRect(0, 0, targetW, targetH);
+      }
+      return finalCanvas;
+    }
+
+    // プレビューのリアルタイム更新
+    function updateLivePreview() {
+      const canvas = generateFinalCanvas();
+      if (canvas) {
+        finalPreviewImg.src = canvas.toDataURL('image/jpeg', 0.8);
+        finalPreviewImg.alt = "プレビュー表示中";
+      }
+    }
+
+    // ダウンロード
+    downloadBtn.addEventListener('click', () => {
+      const canvas = generateFinalCanvas();
+      if (!canvas) return;
+
+      const format = formatSelect.value;
+      const quality = parseInt(qualitySlider.value) / 100;
+      const dataUrl = canvas.toDataURL(format, quality);
+      const ext = format.split('/')[1];
+
+      // テキストボックスからファイル名を取得（空欄ならデフォルト名を設定）
+      let finalFileName = filenameInput.value.trim();
+      if (finalFileName === "") {
+        finalFileName = "edited_image";
+      }
+
+      const link = document.createElement('a');
+      link.download = `${finalFileName}.${ext}`; // 入力された名前と選択された拡張子を結合
+      link.href = dataUrl;
+      link.click();
+    });
+  </script>
+</body>
+</html>
